@@ -38,6 +38,7 @@ We release **Qwen3-ASR**, a family that includes two powerful all-in-one speech 
   - [Gradio Demo](#gradio-demo)
   - [Streaming Demo](#streaming-demo)
 - [Deployment with vLLM](#deployment-with-vllm)
+- [FastAPI Server with OpenAI-Compatible Endpoints](#fastapi-server-with-openai-compatible-endpoints)
 - [Fine Tuning](#fine-tuning)
 - [Docker](#docker)
 - [Evaluation](#evaluation)
@@ -568,6 +569,76 @@ sampling_params = SamplingParams(temperature=0.01, max_tokens=256)
 outputs = llm.chat(conversation, sampling_params=sampling_params)
 print(outputs[0].outputs[0].text)
 ```
+
+## FastAPI Server with OpenAI-Compatible Endpoints
+
+For production deployments and Open-WebUI integration, we provide a FastAPI server with OpenAI-compatible endpoints. This server uses vLLM as the backend and supports 4-bit quantization for low-VRAM systems.
+
+### Quick Start
+
+```bash
+# Install with FastAPI support
+pip install qwen-asr[vllm,fastapi]
+
+# Start the server
+qwen-asr-serve-fastapi
+```
+
+The server will start on `http://0.0.0.0:8000` with these endpoints:
+- `GET /healthz` - Health check
+- `GET /v1/models` - List available models
+- `POST /v1/audio/transcriptions` - Transcribe audio (OpenAI-compatible)
+
+### Configuration
+
+Configure the server using environment variables:
+
+```bash
+export MODEL_ID="Qwen/Qwen3-ASR-1.7B"  # or Qwen3-ASR-0.6B
+export QUANT_MODE="4bit"                # 4bit, awq, gptq, or none
+export DTYPE="bfloat16"                 # float16 or bfloat16
+export GPU_MEMORY_UTILIZATION="0.8"     # 0.0 to 1.0
+export MAX_AUDIO_SECONDS="1200"         # Maximum audio duration
+export PORT="8000"
+
+qwen-asr-serve-fastapi
+```
+
+### Example Usage
+
+```bash
+# Test health
+curl http://localhost:8000/healthz
+
+# List models
+curl http://localhost:8000/v1/models
+
+# Transcribe audio (OpenAI-compatible)
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "language=English"
+```
+
+### Quantization Support
+
+The server supports multiple quantization modes optimized for low-VRAM systems:
+
+- **4-bit (recommended for low-VRAM)**: Attempts bitsandbytes quantization, falls back to BF16/FP16 if not supported
+- **AWQ/GPTQ**: For models with pre-quantized checkpoints
+- **None**: Full precision (BF16/FP16)
+
+**Note**: vLLM 0.14.0 has limited native 4-bit support. The server will automatically fall back to BF16/FP16 with clear logging if 4-bit quantization is not available for the checkpoint.
+
+### Open-WebUI Integration
+
+This server is fully compatible with Open-WebUI:
+
+1. In Open-WebUI settings, add a new OpenAI API connection
+2. Set base URL to `http://your-server:8000/v1`
+3. API key is not required
+4. Audio transcription will automatically use this endpoint
+
+For detailed documentation, examples, and troubleshooting, see [FASTAPI_README.md](FASTAPI_README.md).
 
 
 ## Fine Tuning

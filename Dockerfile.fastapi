@@ -1,0 +1,50 @@
+# Dockerfile for Qwen3-ASR FastAPI Server with vLLM
+# 
+# This Dockerfile creates a production-ready container for running
+# the Qwen3-ASR FastAPI server with vLLM backend.
+
+FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+# Install qwen-asr with FastAPI and vLLM support
+RUN pip3 install qwen-asr[vllm,fastapi]
+
+# Create working directory
+WORKDIR /app
+
+# Set default environment variables (can be overridden at runtime)
+ENV MODEL_ID="Qwen/Qwen3-ASR-1.7B" \
+    QUANT_MODE="4bit" \
+    DTYPE="bfloat16" \
+    GPU_MEMORY_UTILIZATION="0.8" \
+    MAX_MODEL_LEN="8192" \
+    MAX_AUDIO_SECONDS="1200" \
+    MAX_UPLOAD_SIZE_MB="100" \
+    HOST="0.0.0.0" \
+    PORT="8000"
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/healthz || exit 1
+
+# Run the server
+CMD ["qwen-asr-serve-fastapi"]
