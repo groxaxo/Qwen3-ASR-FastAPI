@@ -16,8 +16,16 @@
 We release **Qwen3-ASR**, a family that includes two powerful all-in-one speech recognition models that support language identification and ASR for 52 languages and dialects, as well as a novel non-autoregressive speech forced-alignment model that can align text–speech pairs in 11 languages.
 
 
-## News
 * 2026.1.29: 🎉🎉🎉 We have released the [Qwen3-ASR](https://huggingface.co/collections/Qwen/qwen3-asr) series (0.6B/1.7B) and the Qwen3-ForcedAligner-0.6B model. Please check out our [blog](https://qwen.ai/blog?id=qwen3asr)!
+
+## 🚀 Optimized FastAPI Implementation
+This repository now contains an optimized FastAPI server for Qwen3-ASR, supporting:
+- **OpenAI-Compatible** `/v1/audio/transcriptions` endpoint.
+- **vLLM Accelerated** inference (up to 80x real-time).
+- **Dynamic VRAM Scaling** (0.3 - 0.8 utilization).
+- **Auto-fallback** for quantization modes.
+
+Check the [Local Benchmark Report](docs/BENCHMARK.md) and [Architecture Guide](docs/ARCHITECTURE.md) for details.
 
 
 ## Contents <!-- omit in toc -->
