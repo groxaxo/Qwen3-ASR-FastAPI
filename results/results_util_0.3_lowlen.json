@@ -1,0 +1,32 @@
+[
+  {
+    "label": "util_0.3_lowlen",
+    "filename": "bench_1_short.wav",
+    "duration": 59.993,
+    "processing_time": 12.022544384002686,
+    "rtf": 0.20039911963066834,
+    "avg_vram_mb": 10028.0,
+    "max_vram_mb": 10028.0,
+    "avg_gpu_util": 5.739130434782608
+  },
+  {
+    "label": "util_0.3_lowlen",
+    "filename": "bench_2_med.wav",
+    "duration": 180.0,
+    "processing_time": 6.358758211135864,
+    "rtf": 0.03532643450631036,
+    "avg_vram_mb": 11604.666666666666,
+    "max_vram_mb": 11748.0,
+    "avg_gpu_util": 43.0
+  },
+  {
+    "label": "util_0.3_lowlen",
+    "filename": "bench_3_long.wav",
+    "duration": 248.02079166666667,
+    "processing_time": 10.095428705215454,
+    "rtf": 0.04070396129846824,
+    "avg_vram_mb": 12789.157894736842,
+    "max_vram_mb": 14124.0,
+    "avg_gpu_util": 46.31578947368421
+  }
+]
