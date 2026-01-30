@@ -231,33 +231,53 @@ export GPU_MEMORY_UTILIZATION="0.8"
 
 ## Docker Deployment
 
-```dockerfile
-FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
+### Using Dockerfile
 
-# Install dependencies
-RUN apt-get update && apt-get install -y python3 python3-pip ffmpeg
-
-# Install qwen-asr
-RUN pip3 install qwen-asr[vllm,fastapi]
-
-# Set environment variables
-ENV MODEL_ID="Qwen/Qwen3-ASR-1.7B"
-ENV QUANT_MODE="4bit"
-ENV PORT="8000"
-
-# Expose port
-EXPOSE 8000
-
-# Run server
-CMD ["qwen-asr-serve-fastapi"]
-```
-
-Build and run:
+A pre-configured Dockerfile is provided at `Dockerfile.fastapi`:
 
 ```bash
-docker build -t qwen-asr-fastapi .
+# Build the image
+docker build -f Dockerfile.fastapi -t qwen-asr-fastapi .
+
+# Run the container
 docker run --gpus all -p 8000:8000 qwen-asr-fastapi
 ```
+
+### Using Docker Compose (Recommended)
+
+For easier deployment with docker-compose:
+
+```bash
+# Start the service
+docker-compose -f docker-compose.fastapi.yml up -d
+
+# View logs
+docker-compose -f docker-compose.fastapi.yml logs -f
+
+# Stop the service
+docker-compose -f docker-compose.fastapi.yml down
+```
+
+The docker-compose configuration includes:
+- GPU support
+- Automatic restart
+- Health checks
+- HuggingFace model caching
+- Environment variable configuration
+
+### Custom Configuration with Docker
+
+Override environment variables when running:
+
+```bash
+docker run --gpus all -p 8000:8000 \
+  -e MODEL_ID="Qwen/Qwen3-ASR-0.6B" \
+  -e QUANT_MODE="none" \
+  -e GPU_MEMORY_UTILIZATION="0.9" \
+  qwen-asr-fastapi
+```
+
+Or edit `docker-compose.fastapi.yml` to set your preferred defaults.
 
 ## Logging
 

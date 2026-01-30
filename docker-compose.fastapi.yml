@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  qwen-asr-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    container_name: qwen-asr-fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      # Model configuration
+      - MODEL_ID=Qwen/Qwen3-ASR-1.7B
+      - QUANT_MODE=4bit
+      - DTYPE=bfloat16
+      - GPU_MEMORY_UTILIZATION=0.8
+      - MAX_MODEL_LEN=8192
+      
+      # Audio processing limits
+      - MAX_AUDIO_SECONDS=1200
+      - MAX_UPLOAD_SIZE_MB=100
+      
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    restart: unless-stopped
+    
+    volumes:
+      # Cache HuggingFace models (optional but recommended)
+      - huggingface_cache:/root/.cache/huggingface
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  huggingface_cache:
+    driver: local
