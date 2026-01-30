@@ -134,21 +134,15 @@ async def load_model():
         if QUANT_MODE.lower() not in ["none", "no", "false", ""]:
             if QUANT_MODE.lower() in ["4bit", "bnb", "bitsandbytes"]:
                 # Try to use bitsandbytes quantization
-                try:
-                    # Check if bitsandbytes quantization is supported in vLLM
-                    # vLLM 0.14.0 has limited quantization support
-                    # We'll attempt to load with quantization and fallback if needed
-                    logger.warning(
-                        f"4-bit quantization requested, but vLLM {vllm_kwargs.get('version', '0.14.0')} "
-                        "has limited native 4-bit support. Attempting to load model with available quantization."
-                    )
-                    # Try loading with bitsandbytes if model supports it
-                    vllm_kwargs["quantization"] = "bitsandbytes"
-                except Exception as e:
-                    logger.warning(f"Could not enable bitsandbytes quantization: {e}")
-                    logger.info("Falling back to FP16/BF16 mode")
-                    # Remove quantization parameter, will use dtype instead
-                    vllm_kwargs.pop("quantization", None)
+                # Try to use bitsandbytes quantization
+                # Note: vLLM 0.14.0 has limited native 4-bit support
+                # We'll attempt to load with quantization and fallback if needed
+                logger.warning(
+                    "4-bit quantization requested, but vLLM 0.14.0 "
+                    "has limited native 4-bit support. Attempting to load model with available quantization."
+                )
+                # Set bitsandbytes quantization - will fail during model load if not supported
+                vllm_kwargs["quantization"] = "bitsandbytes"
             elif QUANT_MODE.lower() in ["awq", "gptq"]:
                 vllm_kwargs["quantization"] = QUANT_MODE.lower()
                 logger.info(f"Using {QUANT_MODE.upper()} quantization")
@@ -252,11 +246,11 @@ async def create_transcription(
     
     Args:
         file: Audio file to transcribe
-        model: Model to use (optional, uses server default)
+        model: Model to use (optional, must match server's loaded model)
         language: Language of the audio (optional, auto-detected if not provided)
         prompt: Optional text to guide the model's style or continue a previous segment
         response_format: Response format (json or text)
-        temperature: Sampling temperature (0-1, optional)
+        temperature: Sampling temperature (0-1, optional, currently ignored)
     """
     if asr_model is None:
         return create_error_response(
@@ -264,6 +258,27 @@ async def create_transcription(
             error_type="service_unavailable",
             status_code=503
         )
+    
+    # Validate model parameter if provided
+    if model and model != MODEL_ID:
+        return create_error_response(
+            f"Model '{model}' not available. This server is configured with '{MODEL_ID}'.",
+            error_type="invalid_request_error",
+            status_code=400
+        )
+    
+    # Validate temperature if provided
+    if temperature is not None:
+        if not (0.0 <= temperature <= 1.0):
+            return create_error_response(
+                f"Invalid temperature: {temperature}. Must be between 0.0 and 1.0.",
+                error_type="invalid_request_error",
+                status_code=400
+            )
+        # Note: Temperature is currently not supported by the underlying ASR model
+        # The parameter is accepted for API compatibility but not used
+        if temperature != 0.0:
+            logger.warning(f"Temperature parameter ({temperature}) is accepted but not currently used by ASR model")
     
     # Validate response format
     if response_format not in ["json", "text"]:
@@ -295,6 +310,21 @@ async def create_transcription(
                 error_type="invalid_request_error",
                 status_code=400
             )
+        
+        # Validate content-type if provided
+        content_type = file.content_type
+        if content_type:
+            # Check if content-type is audio-related
+            valid_content_types = [
+                "audio/wav", "audio/x-wav", "audio/wave",
+                "audio/mpeg", "audio/mp3",
+                "audio/mp4", "audio/m4a", "audio/x-m4a",
+                "audio/flac",
+                "audio/ogg", "audio/opus"
+            ]
+            # Also accept application/octet-stream as it's commonly used for binary uploads
+            if content_type not in valid_content_types and content_type != "application/octet-stream":
+                logger.warning(f"Unexpected content-type: {content_type}, proceeding with extension-based validation")
         
     except Exception as e:
         logger.error(f"Error reading file: {e}")
@@ -339,8 +369,9 @@ async def create_transcription(
             # Clean up temp file
             try:
                 os.unlink(tmp_path)
-            except:
-                pass
+            except (OSError, FileNotFoundError) as e:
+                # Log but don't fail - file cleanup is not critical
+                logger.debug(f"Could not delete temporary file {tmp_path}: {e}")
         
     except Exception as e:
         logger.error(f"Error processing audio: {e}")
