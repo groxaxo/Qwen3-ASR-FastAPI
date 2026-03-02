@@ -39,6 +39,14 @@ ENV MODEL_ID="Qwen/Qwen3-ASR-1.7B" \
     HOST="0.0.0.0" \
     PORT="8000"
 
+# Ampere GPU optimizations
+# ENFORCE_EAGER=false keeps CUDA graph capture enabled, reducing per-request
+# kernel-launch overhead on A100/A10/A30 and other SM 8.x GPUs.
+# PYTORCH_CUDA_ALLOC_CONF limits allocator block splits to reduce GPU memory
+# fragmentation for variable-length audio workloads.
+ENV ENFORCE_EAGER="false" \
+    PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512"
+
 # Expose port
 EXPOSE 8000
 

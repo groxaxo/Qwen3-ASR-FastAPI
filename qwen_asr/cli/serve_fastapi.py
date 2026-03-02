@@ -30,6 +30,7 @@ Environment Variables:
     MAX_MODEL_LEN: Maximum model length (default: 8192)
     MAX_AUDIO_SECONDS: Maximum audio duration in seconds (default: 1200)
     MAX_UPLOAD_SIZE_MB: Maximum upload size in MB (default: 100)
+    ENFORCE_EAGER: Disable CUDA graph capture (default: false — graphs enabled for Ampere)
     HOST: Server host (default: 0.0.0.0)
     PORT: Server port (default: 8000)
 """
@@ -38,11 +39,11 @@ import asyncio
 import io
 import logging
 import os
-import tempfile
 import time
 from contextlib import asynccontextmanager
 from typing import Optional, Union
 
+import librosa
 import numpy as np
 import soundfile as sf
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -64,6 +65,9 @@ GPU_MEMORY_UTILIZATION = float(os.getenv("GPU_MEMORY_UTILIZATION", "0.8"))
 MAX_MODEL_LEN = int(os.getenv("MAX_MODEL_LEN", "8192"))
 MAX_AUDIO_SECONDS = int(os.getenv("MAX_AUDIO_SECONDS", "1200"))
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "100"))
+# ENFORCE_EAGER=false keeps CUDA graph capture enabled — the preferred mode for
+# Ampere GPUs (A100, A10, A30, etc.) as it reduces per-request latency.
+ENFORCE_EAGER = os.getenv("ENFORCE_EAGER", "false").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
@@ -118,16 +122,30 @@ async def load_model():
     logger.info(f"Quantization mode: {QUANT_MODE}")
     logger.info(f"Data type: {DTYPE}")
     logger.info(f"GPU memory utilization: {GPU_MEMORY_UTILIZATION}")
+    logger.info(f"Enforce eager (no CUDA graphs): {ENFORCE_EAGER}")
     
     try:
         import torch
         from qwen_asr import Qwen3ASRModel
-        
+
+        # Enable TF32 for Ampere GPUs (SM 8.0+).
+        # TF32 uses the Tensor Core hardware for matmuls/cuDNN ops while keeping
+        # the FP32 range, giving ~3× throughput on A100/A10/A30 with negligible
+        # accuracy loss.  PyTorch enables this by default since 1.7, but we set
+        # it explicitly so any downstream library cannot accidentally disable it.
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            logger.info("TF32 enabled for Ampere GPU Tensor Core acceleration")
+
         # Prepare vLLM arguments
         vllm_kwargs = {
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
             "max_model_len": MAX_MODEL_LEN,
             "dtype": DTYPE,
+            # enforce_eager=False keeps CUDA graph capture enabled on Ampere,
+            # reducing per-request kernel-launch overhead significantly.
+            "enforce_eager": ENFORCE_EAGER,
         }
         
         # Configure quantization
@@ -141,8 +159,10 @@ async def load_model():
                     "4-bit quantization requested, but vLLM 0.14.0 "
                     "has limited native 4-bit support. Attempting to load model with available quantization."
                 )
-                # Set bitsandbytes quantization - will fail during model load if not supported
+                # Set bitsandbytes quantization - will fail during model load if not supported.
+                # load_format must match quantization for bitsandbytes to work correctly.
                 vllm_kwargs["quantization"] = "bitsandbytes"
+                vllm_kwargs["load_format"] = "bitsandbytes"
             elif QUANT_MODE.lower() in ["awq", "gptq"]:
                 vllm_kwargs["quantization"] = QUANT_MODE.lower()
                 logger.info(f"Using {QUANT_MODE.upper()} quantization")
@@ -172,6 +192,7 @@ async def load_model():
                 logger.info("Attempting fallback: loading without quantization")
                 vllm_kwargs_fallback = vllm_kwargs.copy()
                 vllm_kwargs_fallback.pop("quantization", None)
+                vllm_kwargs_fallback.pop("load_format", None)
                 
                 asr_model = Qwen3ASRModel.LLM(
                     model=MODEL_ID,
@@ -334,45 +355,42 @@ async def create_transcription(
             status_code=400
         )
     
-    # Convert audio to required format and check duration
+    # Load audio directly from memory — avoids the disk I/O overhead of writing
+    # to a NamedTemporaryFile and reading it back, which is a measurable bottleneck
+    # on high-throughput Ampere deployments.
     try:
-        # For non-WAV files, we need to convert them
-        # Save to temporary file for ffmpeg/soundfile processing
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
-            tmp.write(audio_bytes)
-            tmp_path = tmp.name
-        
+        from qwen_asr.inference.utils import normalize_audio_input, SAMPLE_RATE
+
+        audio_io = io.BytesIO(audio_bytes)
         try:
-            # Load audio using soundfile/librosa (via normalize_audio_input)
-            from qwen_asr.inference.utils import normalize_audio_input, SAMPLE_RATE
-            
-            # Load and normalize audio to mono 16kHz
-            audio_np = normalize_audio_input(tmp_path)
-            
-            # Check duration
-            duration_sec = len(audio_np) / SAMPLE_RATE
-            if duration_sec > MAX_AUDIO_SECONDS:
-                return create_error_response(
-                    f"Audio duration ({duration_sec:.1f}s) exceeds maximum allowed duration ({MAX_AUDIO_SECONDS}s)",
-                    error_type="invalid_request_error",
-                    status_code=400
-                )
-            
-            if duration_sec < 0.1:
-                return create_error_response(
-                    "Audio is too short (minimum 0.1 seconds)",
-                    error_type="invalid_request_error",
-                    status_code=400
-                )
-            
-        finally:
-            # Clean up temp file
-            try:
-                os.unlink(tmp_path)
-            except (OSError, FileNotFoundError) as e:
-                # Log but don't fail - file cleanup is not critical
-                logger.debug(f"Could not delete temporary file {tmp_path}: {e}")
-        
+            # soundfile handles WAV/FLAC/OGG/OPUS natively via BytesIO
+            audio, sr = sf.read(audio_io, dtype="float32", always_2d=False)
+        except sf.SoundFileError:
+            # soundfile could not decode the format (e.g. MP3, M4A) —
+            # fall back to librosa which uses audioread/ffmpeg for compressed
+            # formats.  Any other sf error (corrupted file, OOM) propagates.
+            audio_io.seek(0)
+            audio, sr = librosa.load(audio_io, sr=None, mono=False)
+            audio = np.asarray(audio, dtype=np.float32)
+
+        audio_np = normalize_audio_input((audio, int(sr)))
+
+        # Check duration
+        duration_sec = len(audio_np) / SAMPLE_RATE
+        if duration_sec > MAX_AUDIO_SECONDS:
+            return create_error_response(
+                f"Audio duration ({duration_sec:.1f}s) exceeds maximum allowed duration ({MAX_AUDIO_SECONDS}s)",
+                error_type="invalid_request_error",
+                status_code=400
+            )
+
+        if duration_sec < 0.1:
+            return create_error_response(
+                "Audio is too short (minimum 0.1 seconds)",
+                error_type="invalid_request_error",
+                status_code=400
+            )
+
     except Exception as e:
         logger.error(f"Error processing audio: {e}")
         return create_error_response(
