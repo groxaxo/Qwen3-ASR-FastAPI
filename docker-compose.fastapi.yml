@@ -20,6 +20,13 @@ services:
       - MAX_AUDIO_SECONDS=1200
       - MAX_UPLOAD_SIZE_MB=100
       
+      # Ampere GPU optimizations
+      # Keep CUDA graph capture enabled (enforce_eager=false) for lower
+      # per-request latency on A100/A10/A30 and similar SM 8.x GPUs.
+      - ENFORCE_EAGER=false
+      # Reduce GPU memory fragmentation for variable-length audio workloads.
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      
       # Server configuration
       - HOST=0.0.0.0
       - PORT=8000
