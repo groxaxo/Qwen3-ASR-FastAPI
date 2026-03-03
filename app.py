@@ -12,12 +12,17 @@ import librosa
 import soundfile as sf
 import uvicorn
 from dotenv import load_dotenv
+from subtitle_utils import format_srt_time, group_time_stamps
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with structured format
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(name)s] [%(levelname)s] - %(message)s",
+)
+logging.getLogger("transformers").setLevel(logging.WARNING)
 logger = logging.getLogger("qwen-asr-server")
 
 try:
@@ -39,6 +44,7 @@ MAX_AUDIO_SECONDS = int(os.getenv("MAX_AUDIO_SECONDS", "1200"))
 ENFORCE_EAGER = os.getenv("ENFORCE_EAGER", "False").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
+FORCED_ALIGNER_ID = os.getenv("FORCED_ALIGNER_ID", "")
 
 app = FastAPI(title="Qwen ASR OpenAI-Compatible Server")
 
@@ -61,6 +67,10 @@ def load_model():
         "enforce_eager": ENFORCE_EAGER,
     }
 
+    forced_aligner = FORCED_ALIGNER_ID if FORCED_ALIGNER_ID else None
+    if forced_aligner:
+        logger.info(f"Forced aligner enabled: {forced_aligner}")
+
     # Attempt 4-bit quantization if requested
     if QUANT_MODE == "4bit":
         try:
@@ -71,6 +81,7 @@ def load_model():
                 model=MODEL_ID,
                 quantization="bitsandbytes",
                 load_format="bitsandbytes",
+                forced_aligner=forced_aligner,
                 **kwargs,
             )
             print("[+] Successfully loaded with bitsandbytes 4-bit quantization.")
@@ -79,10 +90,10 @@ def load_model():
             msg = f"Failed to load with bitsandbytes: {e}. Falling back to {DTYPE}."
             print(f"[!] {msg}")
             logger.warning(msg)
-            model = Qwen3ASRModel.LLM(model=MODEL_ID, dtype=DTYPE, **kwargs)
+            model = Qwen3ASRModel.LLM(model=MODEL_ID, dtype=DTYPE, forced_aligner=forced_aligner, **kwargs)
     else:
         print(f"[*] Loading in {DTYPE} mode...")
-        model = Qwen3ASRModel.LLM(model=MODEL_ID, dtype=DTYPE, **kwargs)
+        model = Qwen3ASRModel.LLM(model=MODEL_ID, dtype=DTYPE, forced_aligner=forced_aligner, **kwargs)
 
     print("[+] Model loaded successfully.")
     logger.info("Model loaded successfully.")
@@ -122,6 +133,10 @@ class ModelList(BaseModel):
 
 class TranscriptionResponse(BaseModel):
     text: str
+    srt: Optional[str] = None
+    language: Optional[str] = None
+    duration: Optional[float] = None
+    segments: Optional[List[dict]] = None
 
 
 @app.get("/v1/models", response_model=ModelList)
@@ -133,7 +148,7 @@ async def list_models():
 async def root():
     return {
         "message": "Qwen ASR API is running",
-        "endpoints": ["/v1/models", "/v1/audio/transcriptions", "/health", "/status"],
+        "endpoints": ["/v1/models", "/v1/audio/transcriptions", "/health", "/healthz", "/status"],
     }
 
 
@@ -141,7 +156,16 @@ async def root():
 async def health_check():
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "model_loaded": MODEL_ID,
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
+    }
+
+
+@app.get("/healthz")
+async def health_check_z():
+    return await health_check()
 
 
 @app.post("/v1/audio/transcriptions")
@@ -152,12 +176,17 @@ async def create_transcription(
     prompt: Optional[str] = Form(None),
     response_format: str = Form("json"),
     temperature: float = Form(0.0),
+    return_timestamps: bool = Form(False),
+    max_gap_sec: float = Form(0.6),
+    max_chars: int = Form(40),
+    split_mode: str = Form("split_by_punctuation_or_pause_or_length"),
 ):
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     # Read file content
     try:
+        start_time = time.time()
         content = await file.read()
         # Temporary file for librosa/soundfile if needed, but we can use io.BytesIO
         # Load and normalize audio
@@ -191,13 +220,19 @@ async def create_transcription(
         # Process via qwen-asr
         # normalize_audio_input converts to mono 16kHz float32
         wav16k = normalize_audio_input((audio, sr))
+        duration_16k = round(len(wav16k) / SAMPLE_RATE, 2)
+
+        # Use forced aligner only if the model has one loaded
+        do_timestamps = return_timestamps and model.forced_aligner is not None
+        if return_timestamps and not do_timestamps:
+            logger.warning("return_timestamps=True but no forced aligner loaded; timestamps skipped.")
 
         # Perform transcription
         results = model.transcribe(
             audio=(wav16k, SAMPLE_RATE),
             context=prompt or "",
             language=language,
-            return_time_stamps=False,
+            return_time_stamps=do_timestamps,
         )
 
         if not results:
@@ -205,12 +240,39 @@ async def create_transcription(
                 status_code=500, detail="Transcription failed to produce results"
             )
 
-        transcription_text = results[0].text
+        res = results[0]
+        total_time = time.time() - start_time
+        real_time_factor = duration_16k / total_time if total_time > 0 else 0
+        logger.info(
+            f"Done in {total_time:.2f}s | Audio: {duration_16k:.2f}s | RTF: {real_time_factor:.2f}x"
+        )
+
+        # Build response payload
+        srt_output = None
+        segments = []
+        if do_timestamps and res.time_stamps:
+            groups = group_time_stamps(res.time_stamps, max_gap_sec, max_chars, split_mode)
+            srt_lines = []
+            for i, g in enumerate(groups, 1):
+                srt_lines.append(
+                    f"{i}\n{format_srt_time(g['start'])} --> {format_srt_time(g['end'])}\n{g['text']}\n"
+                )
+                g["index"] = i
+            srt_output = "\n".join(srt_lines)
+            segments = groups
+
+        transcription_text = res.text
 
         if response_format == "text":
             return transcription_text
 
-        return TranscriptionResponse(text=transcription_text)
+        return TranscriptionResponse(
+            text=transcription_text,
+            srt=srt_output,
+            language=res.language or None,
+            duration=duration_16k,
+            segments=segments or None,
+        )
 
     except HTTPException:
         raise
