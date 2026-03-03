@@ -7,13 +7,20 @@ This implementation adds a production-ready FastAPI server with OpenAI-compatibl
 ## Files Added
 
 ### Core Implementation
-1. **qwen_asr/cli/serve_fastapi.py** (419 lines)
+1. **app.py** (~300 lines)
    - Main FastAPI server implementation
-   - OpenAI-compatible endpoints: `/v1/models`, `/v1/audio/transcriptions`, `/healthz`
-   - Environment variable configuration
+   - OpenAI-compatible endpoints: `/v1/models`, `/v1/audio/transcriptions`, `/health`, `/healthz`
+   - Environment variable configuration (including `FORCED_ALIGNER_ID`)
    - Quantization support with automatic fallback
    - Audio processing and validation
+   - RTF (Real-Time Factor) logging per request
+   - Structured log format with timestamps
    - Error handling with OpenAI-compatible responses
+
+2. **subtitle_utils.py**
+   - `format_srt_time(seconds)`: converts float seconds → `HH:MM:SS,mmm`
+   - `join_tokens(a, b)`: CJK-aware joining (no space for CJK Unified Ideographs; space for Latin text)
+   - `group_time_stamps(timestamps, max_gap_sec, max_chars, split_mode)`: groups forced-aligner word timestamps into subtitle segment dicts using configurable split strategies (`punctuation`, `pause`, `length`)
 
 ### Dependencies
 2. **pyproject.toml** (updated)
@@ -69,7 +76,7 @@ This implementation adds a production-ready FastAPI server with OpenAI-compatibl
 ## Key Features
 
 ### 1. OpenAI-Compatible API
-- **GET /healthz**: Health check endpoint
+- **GET /health** and **GET /healthz**: Health check endpoints (both return model id and device)
 - **GET /v1/models**: List available models (OpenAI format)
 - **POST /v1/audio/transcriptions**: Audio transcription with support for:
   - Multiple audio formats (wav, mp3, m4a, flac, ogg/opus)
@@ -77,6 +84,7 @@ This implementation adds a production-ready FastAPI server with OpenAI-compatibl
   - Context prompts
   - Response format (json/text)
   - File size and duration limits
+  - Word-level timestamps and SRT subtitle output (optional, requires `FORCED_ALIGNER_ID`)
 
 ### 2. vLLM Integration with Quantization
 - **4-bit Quantization**: Attempts bitsandbytes quantization
@@ -99,15 +107,27 @@ Configurable via environment variables:
 - `MAX_MODEL_LEN`: Maximum context length
 - `MAX_AUDIO_SECONDS`: Maximum audio duration
 - `MAX_UPLOAD_SIZE_MB`: Maximum file size
+- `FORCED_ALIGNER_ID`: Optional Qwen3-ForcedAligner model id for word-level timestamps (e.g. `Qwen/Qwen3-ForcedAligner-0.6B`)
 - `HOST`, `PORT`: Server binding
 
-### 5. Error Handling
+### 5. Subtitle & SRT Generation
+- **Word-Level Timestamps**: Via Qwen3-ForcedAligner (opt-in with `FORCED_ALIGNER_ID`)
+- **SRT Output**: Ready-to-use `.srt` formatted string in the `srt` response field
+- **CJK-Aware Joining**: No spaces between CJK Unified Ideograph characters; spaces for Latin text
+- **Configurable Splitting**: `max_gap_sec`, `max_chars`, and `split_mode` control line breaks
+
+### 6. RTF Logging
+- Every transcription request logs the **Real-Time Factor** (audio duration ÷ processing time)
+- Structured log format: `[timestamp] [logger] [level] - message`
+- Third-party log noise (e.g. from `transformers`) suppressed to WARNING level
+
+### 7. Error Handling
 - OpenAI-compatible error responses
 - HTTP status codes (400, 413, 503, etc.)
 - Detailed error messages
 - Validation at every stage
 
-### 6. Open-WebUI Integration
+### 8. Open-WebUI Integration
 - Full compatibility with Open-WebUI
 - No API key required
 - Automatic endpoint discovery

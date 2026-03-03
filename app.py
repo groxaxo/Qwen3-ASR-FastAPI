@@ -242,9 +242,9 @@ async def create_transcription(
 
         res = results[0]
         total_time = time.time() - start_time
-        rtf = duration_16k / total_time if total_time > 0 else 0
+        real_time_factor = duration_16k / total_time if total_time > 0 else 0
         logger.info(
-            f"Done in {total_time:.2f}s | Audio: {duration_16k:.2f}s | RTF: {rtf:.2f}x"
+            f"Done in {total_time:.2f}s | Audio: {duration_16k:.2f}s | RTF: {real_time_factor:.2f}x"
         )
 
         # Build response payload
