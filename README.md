@@ -1,160 +1,446 @@
-# Qwen3-ASR
+<div align="center">
 
-<br>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/logo.png" width="360" alt="Qwen3-ASR"/>
 
-<p align="center">
-    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/logo.png" width="400"/>
+# Qwen3-ASR FastAPI Server
+
+**OpenAI-compatible ASR server · vLLM-accelerated · up to 80× real-time · Open-WebUI ready**
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776ab.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/qwen-asr?color=orange&logo=pypi&logoColor=white)](https://pypi.org/project/qwen-asr/)
+[![CUDA](https://img.shields.io/badge/CUDA-12.8-76b900.svg?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
+[![vLLM](https://img.shields.io/badge/vLLM-0.14.0-blueviolet.svg)](https://github.com/vllm-project/vllm)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker&logoColor=white)](Dockerfile.fastapi)
+[![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991.svg?logo=openai&logoColor=white)](https://platform.openai.com/docs/api-reference/audio)
+
 <p>
-
-<p align="center">
-&nbsp&nbsp🤗 <a href="https://huggingface.co/collections/Qwen/qwen3-asr">Hugging Face</a>&nbsp&nbsp | &nbsp&nbsp🤖 <a href="https://modelscope.cn/collections/Qwen/Qwen3-ASR">ModelScope</a>&nbsp&nbsp | &nbsp&nbsp📑 <a href="https://qwen.ai/blog?id=qwen3asr">Blog</a>&nbsp&nbsp | &nbsp&nbsp📑 <a href="https://arxiv.org/abs/2601.21337">Paper</a>&nbsp&nbsp
-<br>
-🖥️ <a href="https://huggingface.co/spaces/Qwen/Qwen3-ASR">Hugging Face Demo</a>&nbsp&nbsp | &nbsp&nbsp 🖥️ <a href="https://modelscope.cn/studios/Qwen/Qwen3-ASR">ModelScope Demo</a>&nbsp&nbsp | &nbsp&nbsp💬 <a href="https://github.com/QwenLM/Qwen/blob/main/assets/wechat.png">WeChat (微信)</a>&nbsp&nbsp | &nbsp&nbsp🫨 <a href="https://discord.gg/CV4E9rpNSD">Discord</a>&nbsp&nbsp | &nbsp&nbsp📑 <a href="https://help.aliyun.com/zh/model-studio/qwen-speech-recognition">API</a>
-
+&nbsp;&nbsp;🤗&nbsp;<a href="https://huggingface.co/collections/Qwen/qwen3-asr">Hugging Face</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+🤖&nbsp;<a href="https://modelscope.cn/collections/Qwen/Qwen3-ASR">ModelScope</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+📑&nbsp;<a href="https://qwen.ai/blog?id=qwen3asr">Blog</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+📄&nbsp;<a href="https://arxiv.org/abs/2601.21337">Paper</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+🖥️&nbsp;<a href="https://huggingface.co/spaces/Qwen/Qwen3-ASR">HF Demo</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+🫨&nbsp;<a href="https://discord.gg/CV4E9rpNSD">Discord</a>
 </p>
 
-We release **Qwen3-ASR**, a family that includes two powerful all-in-one speech recognition models that support language identification and ASR for 52 languages and dialects, as well as a novel non-autoregressive speech forced-alignment model that can align text–speech pairs in 11 languages.
+</div>
+
+---
+
+This repository provides an **optimized FastAPI server** for [Qwen3-ASR](https://huggingface.co/collections/Qwen/qwen3-asr) with a drop-in OpenAI `/v1/audio/transcriptions` endpoint backed by vLLM. It is a fork of [QwenLM/Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) with production-ready serving additions.
+
+> **2026-01-29** 🎉 Qwen3-ASR series (0.6B / 1.7B) and Qwen3-ForcedAligner-0.6B released. See the [blog post](https://qwen.ai/blog?id=qwen3asr).
+
+## ✨ Features
+
+| Feature | Details |
+|---|---|
+| 🎙️ **OpenAI-Compatible API** | Drop-in `/v1/audio/transcriptions` — works with any OpenAI client |
+| ⚡ **vLLM Backend** | Up to **80× real-time** transcription throughput |
+| 🗜️ **Quantization** | 4-bit / AWQ / GPTQ with automatic BF16 fallback |
+| 🌍 **52 Languages** | 30 languages + 22 Chinese dialects |
+| 🎵 **All Audio Formats** | WAV, MP3, M4A, FLAC, OGG/Opus — auto-converted to 16 kHz mono |
+| 🖥️ **Open-WebUI Ready** | Works as an OpenAI speech endpoint without an API key |
+| 🐳 **Docker + Compose** | Production-ready containers with GPU support & health checks |
+| ⏱️ **SRT Subtitles** | Word-level forced alignment → SRT subtitles via `return_timestamps=true` |
+| 📺 **Streaming** | Real-time streaming inference via vLLM |
 
 
-* 2026.1.29: 🎉🎉🎉 We have released the [Qwen3-ASR](https://huggingface.co/collections/Qwen/qwen3-asr) series (0.6B/1.7B) and the Qwen3-ForcedAligner-0.6B model. Please check out our [blog](https://qwen.ai/blog?id=qwen3asr)!
+## 📦 Models
 
-## 🚀 Optimized FastAPI Implementation
-This repository now contains an optimized FastAPI server for Qwen3-ASR, supporting:
-- **OpenAI-Compatible** `/v1/audio/transcriptions` endpoint.
-- **vLLM Accelerated** inference (up to 80x real-time).
-- **Dynamic VRAM Scaling** (0.3 - 0.8 utilization).
-- **Auto-fallback** for quantization modes.
-
-Check the [Local Benchmark Report](docs/BENCHMARK.md) and [Architecture Guide](docs/ARCHITECTURE.md) for details.
-
-
-## Contents <!-- omit in toc -->
-
-- [Overview](#overview)
-  - [Introduction](#introduction)
-  - [Model Architecture](#model-architecture)
-  - [Released Models Description and Download](#released-models-description-and-download)
-- [Quickstart](#quickstart)
-  - [Environment Setup](#environment-setup)
-  - [Python Package Usage](#python-package-usage)
-    - [Quick Inference](#quick-inference)
-    - [vLLM Backend](#vllm-backend)
-    - [Streaming Inference](#streaming-inference)
-    - [ForcedAligner Usage](#forcedaligner-usage)
-  - [DashScope API Usage](#dashscope-api-usage)
-- [Launch Local Web UI Demo](#launch-local-web-ui-demo)
-  - [Gradio Demo](#gradio-demo)
-  - [Streaming Demo](#streaming-demo)
-- [Deployment with vLLM](#deployment-with-vllm)
-- [FastAPI Server with OpenAI-Compatible Endpoints](#fastapi-server-with-openai-compatible-endpoints)
-- [Fine Tuning](#fine-tuning)
-- [Docker](#docker)
-- [Evaluation](#evaluation)
-- [Citation](#citation)
-
-
-## Overview
-
-### Introduction
-
-<p align="center">
-    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/qwen3_asr_introduction.png" width="90%"/>
-<p>
-
-The Qwen3-ASR family includes Qwen3-ASR-1.7B and Qwen3-ASR-0.6B, which support language identification and ASR for 52 languages and dialects. Both leverage large-scale speech training data and the strong audio understanding capability of their foundation model, Qwen3-Omni. Experiments show that the 1.7B version achieves state-of-the-art performance among open-source ASR models and is competitive with the strongest proprietary commercial APIs. Here are the main features:
-
-* **All-in-one**: Qwen3-ASR-1.7B and Qwen3-ASR-0.6B support language identification and speech recognition for 30 languages and 22 Chinese dialects, so as to English accents from multiple countries and regions.
-
-* **Excellent and Fast**: The Qwen3-ASR family ASR models maintains high-quality and robust recognition under complex acoustic environments and challenging text patterns. Qwen3-ASR-1.7B achieves strong performance on both open-sourced and internal benchmarks. While the 0.6B version achieves accuracy-efficient trade-off, it reaches 2000 times throughput at a concurrency of 128. They both achieve streaming / offline unified inference with single model and support transcribe long audio.
-
-* **Novel and strong forced alignment Solution**: We introduce Qwen3-ForcedAligner-0.6B, which supports timestamp prediction for arbitrary units within up to 5 minutes of speech in 11 languages. Evaluations show its timestamp accuracy surpasses E2E based forced-alignment models.
-
-* **Comprehensive inference toolkit**: In addition to open-sourcing the architectures and weights of the Qwen3-ASR series, we also release a powerful, full-featured inference framework that supports vLLM-based batch inference, asynchronous serving, streaming inference, timestamp prediction, and more.
-
-### Model Architecture
-
-<p align="center">
-    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/overview.jpg" width="100%"/>
-<p>
-
-
-### Released Models Description and Download
-
-Below is an introduction and download information for the Qwen3-ASR models. Please select and download the model that fits your needs.
-
-| Model | Supported Languages | Supported Dialects | Inference Mode | Audio Types |
+| Model | Params | Languages | Inference | VRAM (FP16) |
 |---|---|---|---|---|
-| Qwen3-ASR-1.7B & Qwen3-ASR-0.6B | Chinese (zh), English (en), Cantonese (yue), Arabic (ar), German (de), French (fr), Spanish (es), Portuguese (pt), Indonesian (id), Italian (it), Korean (ko), Russian (ru), Thai (th), Vietnamese (vi), Japanese (ja), Turkish (tr), Hindi (hi), Malay (ms), Dutch (nl), Swedish (sv), Danish (da), Finnish (fi), Polish (pl), Czech (cs), Filipino (fil), Persian (fa), Greek (el), Hungarian (hu), Macedonian (mk), Romanian (ro) | Anhui, Dongbei, Fujian, Gansu, Guizhou, Hebei, Henan, Hubei, Hunan, Jiangxi, Ningxia, Shandong, Shaanxi, Shanxi, Sichuan, Tianjin, Yunnan, Zhejiang, Cantonese (Hong Kong accent), Cantonese (Guangdong accent), Wu language, Minnan language. | Offline / Streaming | Speech, Singing Voice, Songs with BGM |
-| Qwen3-ForcedAligner-0.6B | Chinese, English, Cantonese, French, German, Italian, Japanese, Korean, Portuguese, Russian, Spanish | -- | NAR | Speech |
+| [Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) | 1.7B | 30 lang + 22 dialects | Offline / Streaming | ~22 GB |
+| [Qwen3-ASR-0.6B](https://huggingface.co/Qwen/Qwen/Qwen3-ASR-0.6B) | 0.6B | 30 lang + 22 dialects | Offline / Streaming | ~7 GB (util=0.3) |
+| [Qwen3-ForcedAligner-0.6B](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B) | 0.6B | 11 languages | NAR (timestamps) | — |
 
-During model loading in the `qwen-asr` package or vLLM, model weights will be downloaded automatically based on the model name. However, if your runtime environment does not allow downloading weights during execution, you can use the following commands to manually download the model weights to a local directory:
+
+## Contents
+
+- [Quick Start (5 min)](#-quick-start-5-min)
+- [Installation](#-installation)
+  - [pip](#pip)
+  - [conda](#conda)
+  - [From source](#from-source)
+  - [Docker](#docker-1)
+  - [Flash Attention 2 (optional)](#flash-attention-2-optional)
+- [FastAPI Server](#-fastapi-server)
+  - [Start the server](#start-the-server)
+  - [Configuration reference](#configuration-reference)
+  - [API endpoints](#api-endpoints)
+  - [Quantization modes](#quantization-modes)
+  - [Performance presets](#performance-presets)
+  - [Open-WebUI integration](#open-webui-integration)
+- [Docker Deployment](#-docker-deployment)
+- [Python Package Usage](#-python-package-usage)
+  - [Quick inference (Transformers)](#quick-inference-transformers-backend)
+  - [vLLM backend](#vllm-backend)
+  - [Streaming inference](#streaming-inference)
+  - [ForcedAligner](#forcedaligner-usage)
+- [Native vLLM Serving](#-native-vllm-serving)
+- [DashScope API](#-dashscope-api)
+- [Local Web UI Demo](#-local-web-ui-demo)
+- [Fine-tuning](#-fine-tuning)
+- [Model Architecture](#-model-architecture)
+- [Supported Languages & Dialects](#-supported-languages--dialects)
+- [Evaluation](#-evaluation)
+- [Troubleshooting](#-troubleshooting)
+- [Citation](#-citation)
+
+
+## 🚀 Quick Start (5 min)
 
 ```bash
-# Download through ModelScope (recommended for users in Mainland China)
-pip install -U modelscope
-modelscope download --model Qwen/Qwen3-ASR-1.7B  --local_dir ./Qwen3-ASR-1.7B
-modelscope download --model Qwen/Qwen3-ASR-0.6B --local_dir ./Qwen3-ASR-0.6B
-modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir ./Qwen3-ForcedAligner-0.6B
-# Download through Hugging Face
-pip install -U "huggingface_hub[cli]"
-huggingface-cli download Qwen/Qwen3-ASR-1.7B --local-dir ./Qwen3-ASR-1.7B
-huggingface-cli download Qwen/Qwen3-ASR-0.6B --local-dir ./Qwen3-ASR-0.6B
-huggingface-cli download Qwen/Qwen3-ForcedAligner-0.6B --local-dir ./Qwen3-ForcedAligner-0.6B
+# 1. Install
+pip install qwen-asr[vllm,fastapi]
+
+# 2. Start the server (downloads model on first run)
+qwen-asr-serve-fastapi
+
+# 3. Health check
+curl http://localhost:8000/healthz
+
+# 4. Transcribe audio
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav"
+
+# 5. Use from Python (OpenAI client)
+python - <<'EOF'
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-required")
+with open("audio.wav", "rb") as f:
+    result = client.audio.transcriptions.create(model="Qwen/Qwen3-ASR-1.7B", file=f)
+print(result.text)
+EOF
 ```
 
 
-## Quickstart
+## 📦 Installation
 
-### Environment Setup
+### pip
 
-The easiest way to use Qwen3-ASR is to install the `qwen-asr` Python package from PyPI. This will pull in the required runtime dependencies and allow you to load any released Qwen3-ASR model. If you’d like to simplify environment setup further, you can also use our official [Docker image](#docker). The `qwen-asr` package provides two backends: the transformers backend and the vLLM backend. For usage instructions for different backends, please refer to [Python Package Usage](#python-package-usage). We recommend using a **fresh, isolated environment** to avoid dependency conflicts with existing packages. You can create a clean Python 3.12 environment like this:
-
-```bash
-conda create -n qwen3-asr python=3.12 -y
-conda activate qwen3-asr
-```
-
-Run the following command to get the minimal installation with transformers-backend support:
+Minimal install (Transformers backend only):
 
 ```bash
 pip install -U qwen-asr
 ```
 
-To enable the vLLM backend for faster inference and streaming support, run:
+With vLLM backend (recommended for serving):
 
 ```bash
 pip install -U qwen-asr[vllm]
 ```
 
-If you want to develop or modify the code locally, install from source in editable mode:
+Full install (FastAPI server + vLLM):
 
 ```bash
-git clone https://github.com/QwenLM/Qwen3-ASR.git
-cd Qwen3-ASR
-pip install -e .
-# support vLLM backend
-# pip install -e ".[vllm]"
+pip install -U qwen-asr[vllm,fastapi]
 ```
 
-Additionally, we recommend using FlashAttention 2 to reduce GPU memory usage and accelerate inference speed, especially for long inputs and large batch sizes.
+### conda
+
+A ready-to-use conda environment file is included:
+
+```bash
+# Create the environment (installs Python 3.12, ffmpeg, and all deps)
+conda env create -f environment.yml
+
+# Activate
+conda activate qwen3-asr
+
+# Start the server
+qwen-asr-serve-fastapi
+```
+
+Or create the environment manually:
+
+```bash
+conda create -n qwen3-asr python=3.12 -y
+conda activate qwen3-asr
+conda install -c conda-forge ffmpeg -y
+pip install -U qwen-asr[vllm,fastapi]
+```
+
+### From source
+
+```bash
+git clone https://github.com/groxaxo/Qwen3-ASR-FastAPI.git
+cd Qwen3-ASR-FastAPI
+pip install -e ".[vllm,fastapi]"
+```
+
+### Docker
+
+See [Docker Deployment](#-docker-deployment) for the full guide.
+
+### Flash Attention 2 (optional)
+
+Reduces GPU memory usage and speeds up inference for long audio and large batch sizes. Requires compatible hardware (Ampere+).
 
 ```bash
 pip install -U flash-attn --no-build-isolation
-```
-
-If your machine has less than 96GB of RAM and lots of CPU cores, run:
-
-```bash
+# On machines with limited RAM (< 96 GB) and many CPU cores:
 MAX_JOBS=4 pip install -U flash-attn --no-build-isolation
 ```
 
-Also, you should have hardware that is compatible with FlashAttention 2. Read more about it in the official documentation of the [FlashAttention repository](https://github.com/Dao-AILab/flash-attention). FlashAttention 2 can only be used when a model is loaded in `torch.float16` or `torch.bfloat16`.
+Flash Attention 2 requires the model to be loaded in `float16` or `bfloat16`.
 
-### Python Package Usage
 
-#### Quick Inference
+## 🖥️ FastAPI Server
 
-The `qwen-asr` package provides two backends: **transformers backend** and **vLLM backend**. You can pass audio inputs as a local path, a URL, base64 data, or a `(np.ndarray, sr)` tuple, and run batch inference. To quickly try Qwen3-ASR, you can use `Qwen3ASRModel.from_pretrained(...)` for the transformers backend with the following code:
+The FastAPI server is the primary deployment mode for this repository. It exposes an **OpenAI-compatible** `/v1/audio/transcriptions` endpoint backed by vLLM, making it a drop-in replacement for the OpenAI Whisper API.
+
+### Start the server
+
+**Option 1 — Direct command (simplest)**
+
+```bash
+qwen-asr-serve-fastapi
+```
+
+**Option 2 — Environment variables**
+
+```bash
+export MODEL_ID="Qwen/Qwen3-ASR-1.7B"
+export QUANT_MODE="4bit"
+export PORT="8000"
+qwen-asr-serve-fastapi
+```
+
+**Option 3 — Launch script with presets**
+
+```bash
+# Low-VRAM preset (< 8 GB GPU)
+./launch_fastapi_server.sh --low-vram
+
+# High-performance preset
+./launch_fastapi_server.sh --high-performance
+
+# Custom
+./launch_fastapi_server.sh -m Qwen/Qwen3-ASR-0.6B -q none -p 9000
+```
+
+**Option 4 — Docker Compose**
+
+```bash
+docker compose -f docker-compose.fastapi.yml up -d
+```
+
+### Configuration reference
+
+All settings are controlled via environment variables (also supported in `.env` — copy `.env.example` to `.env`):
+
+| Variable | Default | Description |
+|---|---|---|
+| `MODEL_ID` | `Qwen/Qwen3-ASR-1.7B` | HuggingFace model ID |
+| `QUANT_MODE` | `4bit` | `4bit` · `awq` · `gptq` · `none` |
+| `DTYPE` | `bfloat16` | `float16` · `bfloat16` |
+| `GPU_MEMORY_UTILIZATION` | `0.8` | vLLM KV-cache pool fraction (0–1) |
+| `MAX_MODEL_LEN` | `8192` | Maximum context length in tokens |
+| `MAX_AUDIO_SECONDS` | `1200` | Maximum audio duration (seconds) |
+| `MAX_UPLOAD_SIZE_MB` | `100` | Maximum file upload size (MB) |
+| `ENFORCE_EAGER` | `false` | Disable CUDA graphs (use for debug / very low VRAM) |
+| `PYTORCH_CUDA_ALLOC_CONF` | `max_split_size_mb:512` | Reduce GPU memory fragmentation |
+| `FORCED_ALIGNER_ID` | *(empty)* | HuggingFace ID for ForcedAligner (enables SRT/timestamps) |
+| `HOST` | `0.0.0.0` | Server bind address |
+| `PORT` | `8000` | Server port |
+| `CUDA_VISIBLE_DEVICES` | *(system default)* | GPU device selection |
+
+### API endpoints
+
+#### Health check
+
+```bash
+curl http://localhost:8000/healthz
+# {"status": "healthy"}
+```
+
+#### List models
+
+```bash
+curl http://localhost:8000/v1/models
+```
+
+#### Transcribe audio
+
+```bash
+# Basic transcription
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav"
+
+# Specify language (skips auto-detection)
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "language=English"
+
+# With a context prompt
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "prompt=Medical terminology expected"
+
+# Plain-text response
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "response_format=text"
+
+# With SRT subtitles (requires FORCED_ALIGNER_ID to be set)
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "return_timestamps=true"
+```
+
+**Request form fields:**
+
+| Field | Default | Description |
+|---|---|---|
+| `file` | required | Audio file (WAV/MP3/M4A/FLAC/OGG/Opus) |
+| `language` | `null` | Force language (e.g. `English`, `Chinese`); `null` = auto-detect |
+| `prompt` | `null` | Context hint / style guide |
+| `response_format` | `json` | `json` or `text` |
+| `return_timestamps` | `false` | Enable SRT + segments (requires `FORCED_ALIGNER_ID`) |
+| `max_gap_sec` | `0.6` | Max silence gap before new subtitle segment |
+| `max_chars` | `40` | Max characters per subtitle line |
+| `split_mode` | `split_by_punctuation_or_pause_or_length` | Subtitle split strategy |
+
+**Supported audio formats:** WAV · MP3 · M4A · FLAC · OGG · Opus  
+All formats are automatically converted to 16 kHz mono before processing.
+
+**JSON response:**
+```json
+{
+  "text": "Hello, this is a test transcription.",
+  "language": "English",
+  "duration": 3.2,
+  "srt": "1\n00:00:00,000 --> 00:00:03,200\nHello, this is a test transcription.\n",
+  "segments": [{"index": 1, "start": 0.0, "end": 3.2, "text": "Hello, this is a test transcription."}]
+}
+```
+
+> `srt` and `segments` are `null` when `return_timestamps=false` or no ForcedAligner is configured.
+
+**Error responses** follow the OpenAI format:
+```json
+{"error": {"message": "...", "type": "invalid_request_error", "code": null}}
+```
+
+HTTP status codes: `400` (bad request / unsupported format / too long), `413` (file too large), `503` (model not ready).
+
+#### Python (OpenAI client)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-required")
+
+with open("audio.wav", "rb") as f:
+    result = client.audio.transcriptions.create(
+        model="Qwen/Qwen3-ASR-1.7B",
+        file=f,
+        language="English",  # optional
+    )
+print(result.text)
+```
+
+### Quantization modes
+
+| Mode | VRAM | Notes |
+|---|---|---|
+| `4bit` | Lowest | Attempts bitsandbytes; **auto-falls back to BF16** if unsupported by vLLM |
+| `awq` | Low | For AWQ-quantized model checkpoints |
+| `gptq` | Low | For GPTQ-quantized model checkpoints |
+| `none` | Full | FP16 / BF16 — best accuracy and speed |
+
+> **Note on vLLM 0.14.0:** Native 4-bit quantization support is limited. The server automatically falls back to BF16/FP16 with a clear log message (`⚠ Model loaded in fallback mode`). This is expected behaviour and the model remains fully functional.
+
+### Performance presets
+
+**Low-VRAM (< 8 GB GPU)**
+
+```bash
+export MODEL_ID="Qwen/Qwen3-ASR-0.6B"
+export QUANT_MODE="4bit"
+export GPU_MEMORY_UTILIZATION="0.9"
+export MAX_MODEL_LEN="4096"
+qwen-asr-serve-fastapi
+```
+
+**High-performance (≥ 16 GB GPU)**
+
+```bash
+export MODEL_ID="Qwen/Qwen3-ASR-1.7B"
+export QUANT_MODE="none"
+export DTYPE="bfloat16"
+export GPU_MEMORY_UTILIZATION="0.8"
+qwen-asr-serve-fastapi
+```
+
+### Open-WebUI integration
+
+1. Open **Settings → Connections** in Open-WebUI
+2. Add a new OpenAI API connection
+3. Set **Base URL** to `http://your-server:8000/v1`
+4. Leave **API key** empty (not required)
+5. Save — audio transcription will now use your Qwen3-ASR server
+
+
+## 🐳 Docker Deployment
+
+### Using Dockerfile
+
+```bash
+# Build
+docker build -f Dockerfile.fastapi -t qwen3-asr-fastapi .
+
+# Run
+docker run --gpus all -p 8000:8000 qwen3-asr-fastapi
+
+# Custom config
+docker run --gpus all -p 8000:8000 \
+  -e MODEL_ID="Qwen/Qwen3-ASR-0.6B" \
+  -e QUANT_MODE="none" \
+  -e GPU_MEMORY_UTILIZATION="0.9" \
+  qwen3-asr-fastapi
+```
+
+### Using Docker Compose (recommended)
+
+```bash
+# Start
+docker compose -f docker-compose.fastapi.yml up -d
+
+# View logs
+docker compose -f docker-compose.fastapi.yml logs -f
+
+# Stop
+docker compose -f docker-compose.fastapi.yml down
+```
+
+The Compose file includes:
+- GPU reservation (NVIDIA)
+- `unless-stopped` restart policy
+- HuggingFace model cache volume mount
+- Health check (`/healthz`)
+
+### Official Qwen3-ASR base image
+
+For interactive development / research use, the official `qwenllm/qwen3-asr:latest` image is available on Docker Hub:
+
+```bash
+LOCAL_WORKDIR=/path/to/your/workspace
+docker run --gpus all --name qwen3-asr \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -p 8000:80 \
+    --mount type=bind,source=$LOCAL_WORKDIR,target=/data/shared/Qwen3-ASR \
+    --shm-size=4gb \
+    -it qwenllm/qwen3-asr:latest
+```
+
+Requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+
+## 🐍 Python Package Usage
+
+### Quick inference (Transformers backend)
 
 ```python
 import torch
@@ -165,139 +451,71 @@ model = Qwen3ASRModel.from_pretrained(
     dtype=torch.bfloat16,
     device_map="cuda:0",
     # attn_implementation="flash_attention_2",
-    max_inference_batch_size=32, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
-    max_new_tokens=256, # Maximum number of tokens to generate. Set a larger value for long audio input.
+    max_inference_batch_size=32,
+    max_new_tokens=256,
 )
 
 results = model.transcribe(
     audio="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
-    language=None, # set "English" to force the language
+    language=None,  # None = auto-detect
 )
-
 print(results[0].language)
 print(results[0].text)
 ```
 
-If you want to return timestamps, pass `forced_aligner` and its init kwargs. Here is an example of batch inference with timestamps output:
+With timestamps (requires ForcedAligner):
 
 ```python
-import torch
-from qwen_asr import Qwen3ASRModel
-
 model = Qwen3ASRModel.from_pretrained(
     "Qwen/Qwen3-ASR-1.7B",
     dtype=torch.bfloat16,
     device_map="cuda:0",
-    # attn_implementation="flash_attention_2",
-    max_inference_batch_size=32, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
-    max_new_tokens=256, # Maximum number of tokens to generate. Set a larger value for long audio input.
+    max_inference_batch_size=32,
+    max_new_tokens=256,
     forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
-    forced_aligner_kwargs=dict(
-        dtype=torch.bfloat16,
-        device_map="cuda:0",
-        # attn_implementation="flash_attention_2",
-    ),
+    forced_aligner_kwargs=dict(dtype=torch.bfloat16, device_map="cuda:0"),
 )
 
 results = model.transcribe(
-    audio=[
-      "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_zh.wav",
-      "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
-    ],
-    language=["Chinese", "English"], # can also be set to None for automatic language detection
+    audio=["path/to/audio_zh.wav", "path/to/audio_en.wav"],
+    language=["Chinese", "English"],
     return_time_stamps=True,
 )
-
 for r in results:
     print(r.language, r.text, r.time_stamps[0])
 ```
 
-For more detailed usage examples, please refer to the [example code](https://github.com/QwenLM/Qwen3-ASR/blob/main/examples/example_qwen3_asr_transformers.py) for the transformers backend.
-
-#### vLLM Backend
-
-If you want the fastest inference speed with Qwen3-ASR, we strongly recommend using the vLLM backend by initializing the model with `Qwen3ASRModel.LLM(...)`. Example code is provided below. Note that you must install it via `pip install -U qwen-asr[vllm]`. If you want the model to output timestamps, it’s best to install FlashAttention via `pip install -U flash-attn --no-build-isolation` to speed up inference for the forced aligner model. Remember to wrap your code under `if __name__ == '__main__':` to avoid the `spawn` error described in [vLLM Troubleshooting](https://docs.vllm.ai/en/latest/usage/troubleshooting/#python-multiprocessing).
+### vLLM backend
 
 ```python
-import torch
 from qwen_asr import Qwen3ASRModel
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     model = Qwen3ASRModel.LLM(
         model="Qwen/Qwen3-ASR-1.7B",
         gpu_memory_utilization=0.7,
-        max_inference_batch_size=128, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
-        max_new_tokens=4096, # Maximum number of tokens to generate. Set a larger value for long audio input.
-        forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
-        forced_aligner_kwargs=dict(
-            dtype=torch.bfloat16,
-            device_map="cuda:0",
-            # attn_implementation="flash_attention_2",
-        ),
+        max_inference_batch_size=128,
+        max_new_tokens=4096,
     )
 
     results = model.transcribe(
         audio=[
-        "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_zh.wav",
-        "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
+            "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_zh.wav",
+            "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
         ],
-        language=["Chinese", "English"], # can also be set to None for automatic language detection
-        return_time_stamps=True,
+        language=["Chinese", "English"],
     )
-
     for r in results:
-        print(r.language, r.text, r.time_stamps[0])
+        print(r.language, r.text)
 ```
 
-For more detailed usage examples, please refer to the [example code](https://github.com/QwenLM/Qwen3-ASR/blob/main/examples/example_qwen3_asr_vllm.py) for the vLLM backend. In addition, you can start a vLLM server via the `qwen-asr-serve` command, which is a wrapper around `vllm serve`. You can pass any arguments supported by `vllm serve`, for example:
+> ⚠️ Wrap code in `if __name__ == "__main__":` to avoid vLLM multiprocessing errors.
 
-```bash
-qwen-asr-serve Qwen/Qwen3-ASR-1.7B --gpu-memory-utilization 0.8 --host 0.0.0.0 --port 8000
-```
+### Streaming inference
 
-And send requests to the server via:
+Streaming is available with the vLLM backend only (no batch or timestamps support in streaming mode). See [`examples/example_qwen3_asr_vllm_streaming.py`](examples/example_qwen3_asr_vllm_streaming.py) for details.
 
-```python
-import requests
-
-url = "http://localhost:8000/v1/chat/completions"
-headers = {"Content-Type": "application/json"}
-
-data = {
-    "messages": [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "audio_url",
-                    "audio_url": {
-                        "url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"
-                    },
-                }
-            ],
-        }
-    ]
-}
-
-response = requests.post(url, headers=headers, json=data, timeout=300)
-response.raise_for_status()
-content = response.json()['choices'][0]['message']['content']
-print(content)
-
-# parse ASR output if you want
-from qwen_asr import parse_asr_output
-language, text = parse_asr_output(content)
-print(language)
-print(text)
-```
-
-#### Streaming Inference
-
-Qwen3-ASR fully supports streaming inference. Currently, streaming inference is only available with the vLLM backend. Note that streaming inference does not support batch inference or returning timestamps. Please refer to the [example code](https://github.com/QwenLM/Qwen3-ASR/blob/main/examples/example_qwen3_asr_vllm_streaming.py) for details. You can also launch a streaming web demo through the [guide](#streaming-demo) to experience Qwen3-ASR’s streaming transcription capabilities. 
-
-#### ForcedAligner Usage
-
-`Qwen3-ForcedAligner-0.6B` can align text–speech pairs and return word or character level timestamps. Here is an example of using the forced aligner directly:
+### ForcedAligner usage
 
 ```python
 import torch
@@ -307,384 +525,182 @@ model = Qwen3ForcedAligner.from_pretrained(
     "Qwen/Qwen3-ForcedAligner-0.6B",
     dtype=torch.bfloat16,
     device_map="cuda:0",
-    # attn_implementation="flash_attention_2",
 )
 
 results = model.align(
-    audio="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_zh.wav",
+    audio="path/to/audio_zh.wav",
     text="甚至出现交易几乎停滞的情况。",
     language="Chinese",
 )
-
-print(results[0])
-print(results[0][0].text, results[0][0].start_time, results[0][0].end_time)
+for token in results[0]:
+    print(token.text, token.start_time, token.end_time)
 ```
 
-In addition, the forced aligner supports local paths / URLs / base64 data / `(np.ndarray, sr)` inputs and batch inference. Please refer to the [example code](https://github.com/QwenLM/Qwen3-ASR/blob/main/examples/example_qwen3_forced_aligner.py) for details.
 
-### DashScope API Usage
+## 🌐 Native vLLM Serving
 
-To further explore Qwen3-ASR, we encourage you to try our DashScope API for a faster and more efficient experience. For detailed API information and documentation, please refer to the following:
+vLLM natively supports Qwen3-ASR with `vllm serve`. Use this for maximum control or multi-GPU setups.
 
-| API Description | API Documentation (Mainland China) | API Documentation (International) |
-|------------------|-----------------------------------|------------------------------------|
-| Real-time API for Qwen3-ASR. | [https://help.aliyun.com/zh/model-studio/qwen-real-time-speech-recognition](https://help.aliyun.com/zh/model-studio/qwen-real-time-speech-recognition) | [https://www.alibabacloud.com/help/en/model-studio/qwen-real-time-speech-recognition](https://www.alibabacloud.com/help/en/model-studio/qwen-real-time-speech-recognition) |
-| FileTrans API for Qwen3-ASR. | [https://help.aliyun.com/zh/model-studio/qwen-speech-recognition](https://help.aliyun.com/zh/model-studio/qwen-speech-recognition) | [https://www.alibabacloud.com/help/en/model-studio/qwen-speech-recognition](https://www.alibabacloud.com/help/en/model-studio/qwen-speech-recognition) |
-
-
-## Launch Local Web UI Demo
-
-### Gradio Demo
-
-To launch the Qwen3-ASR web UI gradio demo, install the `qwen-asr` package and run `qwen-asr-demo`. Use the command below for help:
+### Installation
 
 ```bash
-qwen-asr-demo --help
+uv venv && source .venv/bin/activate
+uv pip install -U vllm --pre \
+    --extra-index-url https://wheels.vllm.ai/nightly/cu129 \
+    --extra-index-url https://download.pytorch.org/whl/cu129 \
+    --index-strategy unsafe-best-match
+uv pip install "vllm[audio]"
 ```
 
-To launch the demo, you can use the following commands:
+### Start the server
 
 ```bash
-# Transformers backend
+vllm serve Qwen/Qwen3-ASR-1.7B
+```
+
+### Query the server
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": [{"type": "audio_url", "audio_url": {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"}}]}]}'
+```
+
+Or use the `qwen-asr-serve` wrapper:
+
+```bash
+qwen-asr-serve Qwen/Qwen3-ASR-1.7B --gpu-memory-utilization 0.8 --port 8000
+```
+
+### Offline inference
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(model="Qwen/Qwen3-ASR-1.7B")
+sampling_params = SamplingParams(temperature=0.01, max_tokens=256)
+
+outputs = llm.chat([{
+    "role": "user",
+    "content": [{
+        "type": "audio_url",
+        "audio_url": {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"}
+    }]
+}], sampling_params)
+print(outputs[0].outputs[0].text)
+```
+
+
+## 📡 DashScope API
+
+For a hosted API option, use the Alibaba DashScope API:
+
+| API | China | International |
+|---|---|---|
+| Real-time ASR | [link](https://help.aliyun.com/zh/model-studio/qwen-real-time-speech-recognition) | [link](https://www.alibabacloud.com/help/en/model-studio/qwen-real-time-speech-recognition) |
+| FileTrans ASR | [link](https://help.aliyun.com/zh/model-studio/qwen-speech-recognition) | [link](https://www.alibabacloud.com/help/en/model-studio/qwen-speech-recognition) |
+
+
+## 🖥️ Local Web UI Demo
+
+### Gradio demo
+
+```bash
 qwen-asr-demo \
   --asr-checkpoint Qwen/Qwen3-ASR-1.7B \
-  --backend transformers \
+  --backend vllm \
   --cuda-visible-devices 0 \
+  --backend-kwargs '{"gpu_memory_utilization": 0.7}' \
   --ip 0.0.0.0 --port 8000
+```
 
-# Transformers backend + Forced Aligner (enable timestamps)
-qwen-asr-demo \
-  --asr-checkpoint Qwen/Qwen3-ASR-1.7B \
-  --aligner-checkpoint Qwen/Qwen3-ForcedAligner-0.6B \
-  --backend transformers \
-  --cuda-visible-devices 0 \
-  --backend-kwargs '{"device_map":"cuda:0","dtype":"bfloat16","max_inference_batch_size":8,"max_new_tokens":256}' \
-  --aligner-kwargs '{"device_map":"cuda:0","dtype":"bfloat16"}' \
-  --ip 0.0.0.0 --port 8000
+With timestamps:
 
-# vLLM backend + Forced Aligner (enable timestamps)
+```bash
 qwen-asr-demo \
   --asr-checkpoint Qwen/Qwen3-ASR-1.7B \
   --aligner-checkpoint Qwen/Qwen3-ForcedAligner-0.6B \
   --backend vllm \
   --cuda-visible-devices 0 \
-  --backend-kwargs '{"gpu_memory_utilization":0.7,"max_inference_batch_size":8,"max_new_tokens":2048}' \
-  --aligner-kwargs '{"device_map":"cuda:0","dtype":"bfloat16"}' \
   --ip 0.0.0.0 --port 8000
 ```
 
-Then open `http://<your-ip>:8000`, or access it via port forwarding in tools like VS Code.
-
-#### Backend Notes
-
-This demo supports two backends: transformers and vLLM. All backend-specific initialization parameters should be passed via `--backend-kwargs` as a JSON dict. If not provided, the demo will use sensible defaults.
+For HTTPS (required for browser microphone access when deployed remotely):
 
 ```bash
-# Example: override transformers init args with flash attention
---backend-kwargs '{"device_map":"cuda:0","dtype":"bfloat16","attn_implementation":"flash_attention_2"}'
-
-# Example: override vLLM init args with 65% GPU memory
---backend-kwargs '{"gpu_memory_utilization":0.65}'
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+qwen-asr-demo --asr-checkpoint Qwen/Qwen3-ASR-1.7B --ssl-certfile cert.pem --ssl-keyfile key.pem --no-ssl-verify
 ```
 
-#### CUDA Device Notes
-
-Because vLLM does not follow `cuda:0` style device selection, this demo selects GPUs by setting `CUDA_VISIBLE_DEVICES` via `--cuda-visible-devices`.
-
-```bash
-# Use GPU 0
---cuda-visible-devices 0
-
-# Use GPU 1
---cuda-visible-devices 1
-```
-
-#### Timestamps Notes
-
-Timestamps are only available when `--aligner-checkpoint` is provided. If you launch the demo without a forced aligner, the timestamps UI will be hidden automatically.
-
-```bash
-# No forced aligner
-qwen-asr-demo --asr-checkpoint Qwen/Qwen3-ASR-1.7B
-
-# With forced aligner
-qwen-asr-demo \
-  --asr-checkpoint Qwen/Qwen3-ASR-1.7B \
-  --aligner-checkpoint Qwen/Qwen3-ForcedAligner-0.6B
-```
-
-#### HTTPS Notes
-
-To avoid browser microphone permission issues after deploying the server, it is recommended/required to run the gradio service over HTTPS (especially when accessed remotely or behind modern browsers/gateways). Use `--ssl-certfile` and `--ssl-keyfile` to enable HTTPS. First, generate a private key and a self-signed certificate (valid for 365 days):
-
-```bash
-openssl req -x509 -newkey rsa:2048 \
-  -keyout key.pem -out cert.pem \
-  -days 365 -nodes \
-  -subj "/CN=localhost"
-```
-
-Then run the demo with HTTPS:
-
-```bash
-qwen-asr-demo \
-  --asr-checkpoint Qwen/Qwen3-ASR-1.7B \
-  --backend transformers \
-  --cuda-visible-devices 0 \
-  --ip 0.0.0.0 --port 8000 \
-  --ssl-certfile cert.pem \
-  --ssl-keyfile key.pem \
-  --no-ssl-verify
-```
-
-Then open `https://<your-ip>:8000` to use it. If your browser shows a warning, that’s expected for self-signed certificates. For production, use a real certificate.
-
-### Streaming Demo
-
-To experience Qwen3-ASR’s streaming transcription capability in a web UI, we provide a minimal Flask-based streaming demo. The demo captures microphone audio in the browser, resamples it to 16,000 Hz, and continuously pushes PCM chunks to the model. Run the demo with the following command:
+### Streaming demo
 
 ```bash
 qwen-asr-demo-streaming \
   --asr-model-path Qwen/Qwen3-ASR-1.7B \
   --gpu-memory-utilization 0.9 \
-  --host 0.0.0.0 \
-  --port 8000
+  --host 0.0.0.0 --port 8000
 ```
 
-Then open `http://<your-ip>:8000`, or access it via port forwarding in tools like VS Code.
+Open `http://<your-ip>:8000` — the demo captures microphone audio and streams it to the model in real time.
 
-## Deployment with vLLM
 
-vLLM officially provides day-0 model support for Qwen3-ASR for efficient inference. 
+## 🔧 Fine-tuning
 
-### Installation
-You can run Qwen3-ASR with vLLM nightly wheel or docker image. To install the nightly version of vLLM, we recommend using `uv` as the environment manager
-```bash
-uv venv
-source .venv/bin/activate
-uv pip install -U vllm --pre \
-    --extra-index-url https://wheels.vllm.ai/nightly/cu129 \
-    --extra-index-url https://download.pytorch.org/whl/cu129 \
-    --index-strategy unsafe-best-match
-uv pip install "vllm[audio]" # For additional audio dependencies
-```
-
-### Online Serving
-You can easily deploy Qwen3-ASR with vLLM by running the following command
-```bash
-vllm serve Qwen/Qwen3-ASR-1.7B
-```
-After the model server is successfully deployed, you can interact with it in multiple ways.
-
-#### Using OpenAI SDK
-```python
-import base64
-import httpx
-from openai import OpenAI
-
-# Initialize client
-client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="EMPTY"
-)
-
-# Create multimodal chat completion request
-response = client.chat.completions.create(
-    model="Qwen/Qwen3-ASR-1.7B",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "audio_url",
-                    "audio_url": {
-                        {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"}
-                    }
-                }
-            ]
-        }
-    ],
-)
-
-print(response.choices[0].message.content)
-```
-This model is also supported on vLLM with OpenAI transcription API.
-```python
-import httpx
-from openai import OpenAI
-
-# Initialize client
-client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="EMPTY"
-)
-audio_url = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"
-audio_file = httpx.get(audio_url).content
-
-transcription = client.audio.transcriptions.create(
-    model="Qwen/Qwen3-ASR-1.7B",
-    file=audio_file,
-)
-
-print(transcription.text)
-```
-
-#### Using cURL
-```bash
-curl http://localhost:8000/v1/chat/completions \
-    -H "Content-Type: application/json" \
-    -d '{
-    "messages": [
-    {"role": "user", "content": [
-        {"type": "audio_url", "audio_url": {"url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav"}}
-    ]}
-    ]
-    }'
-```
-
-### Offline Inference
-See the following example on using vLLM to run offline inference with Qwen3-ASR
-```python
-from vllm import LLM, SamplingParams
-from vllm.assets.audio import AudioAsset
-import base64
-import requests
-
-# Initialize the LLM
-llm = LLM(
-    model="Qwen/Qwen3-ASR-1.7B"
-)
-
-# Load audio
-audio_asset = AudioAsset("winning_call")
-
-# Create conversation with audio content
-conversation = [
-    {
-        "role": "user",
-        "content": [
-            {
-                "type": "audio_url",
-                "audio_url": {"url": audio_asset.url}
-            }
-        ]
-    }
-]
-
-sampling_params = SamplingParams(temperature=0.01, max_tokens=256)
-
-# Run inference using .chat()
-outputs = llm.chat(conversation, sampling_params=sampling_params)
-print(outputs[0].outputs[0].text)
-```
-
-## FastAPI Server with OpenAI-Compatible Endpoints
-
-For production deployments and Open-WebUI integration, we provide a FastAPI server with OpenAI-compatible endpoints. This server uses vLLM as the backend and supports 4-bit quantization for low-VRAM systems.
-
-### Quick Start
+See [finetuning/README.md](finetuning/README.md) for detailed instructions on fine-tuning Qwen3-ASR with JSONL audio-text pairs and multi-GPU training via `torchrun`.
 
 ```bash
-# Install with FastAPI support
-pip install qwen-asr[vllm,fastapi]
-
-# Start the server
-qwen-asr-serve-fastapi
+# Setup
+pip install -U qwen-asr datasets
+pip install -U flash-attn --no-build-isolation  # recommended
 ```
 
-The server will start on `http://0.0.0.0:8000` with these endpoints:
-- `GET /healthz` - Health check
-- `GET /v1/models` - List available models
-- `POST /v1/audio/transcriptions` - Transcribe audio (OpenAI-compatible)
 
-### Configuration
+## 🏗️ Model Architecture
 
-Configure the server using environment variables:
+<p align="center">
+    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/qwen3_asr_introduction.png" width="90%"/>
+</p>
+
+The Qwen3-ASR family (0.6B and 1.7B) supports language identification and ASR for 52 languages and dialects. Both models leverage large-scale speech training data and the audio understanding capability of their foundation model, **Qwen3-Omni**. The 1.7B model achieves state-of-the-art performance among open-source ASR models and is competitive with the strongest proprietary APIs.
+
+<p align="center">
+    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/overview.jpg" width="100%"/>
+</p>
+
+**Model downloads:**
 
 ```bash
-export MODEL_ID="Qwen/Qwen3-ASR-1.7B"  # or Qwen3-ASR-0.6B
-export QUANT_MODE="4bit"                # 4bit, awq, gptq, or none
-export DTYPE="bfloat16"                 # float16 or bfloat16
-export GPU_MEMORY_UTILIZATION="0.8"     # 0.0 to 1.0
-export MAX_AUDIO_SECONDS="1200"         # Maximum audio duration
-export PORT="8000"
+# HuggingFace
+huggingface-cli download Qwen/Qwen3-ASR-1.7B --local-dir ./Qwen3-ASR-1.7B
+huggingface-cli download Qwen/Qwen3-ASR-0.6B --local-dir ./Qwen3-ASR-0.6B
+huggingface-cli download Qwen/Qwen3-ForcedAligner-0.6B --local-dir ./Qwen3-ForcedAligner-0.6B
 
-qwen-asr-serve-fastapi
+# ModelScope (recommended for Mainland China)
+modelscope download --model Qwen/Qwen3-ASR-1.7B  --local_dir ./Qwen3-ASR-1.7B
+modelscope download --model Qwen/Qwen3-ASR-0.6B  --local_dir ./Qwen3-ASR-0.6B
 ```
 
-### Example Usage
 
-```bash
-# Test health
-curl http://localhost:8000/healthz
+## 🌍 Supported Languages & Dialects
 
-# List models
-curl http://localhost:8000/v1/models
+**30 languages:** Chinese (zh) · English (en) · Cantonese (yue) · Arabic (ar) · German (de) · French (fr) · Spanish (es) · Portuguese (pt) · Indonesian (id) · Italian (it) · Korean (ko) · Russian (ru) · Thai (th) · Vietnamese (vi) · Japanese (ja) · Turkish (tr) · Hindi (hi) · Malay (ms) · Dutch (nl) · Swedish (sv) · Danish (da) · Finnish (fi) · Polish (pl) · Czech (cs) · Filipino (fil) · Persian (fa) · Greek (el) · Hungarian (hu) · Macedonian (mk) · Romanian (ro)
 
-# Transcribe audio (OpenAI-compatible)
-curl -X POST http://localhost:8000/v1/audio/transcriptions \
-  -F "file=@audio.wav" \
-  -F "language=English"
-```
+**22 Chinese dialects:** Anhui · Dongbei · Fujian · Gansu · Guizhou · Hebei · Henan · Hubei · Hunan · Jiangxi · Ningxia · Shandong · Shaanxi · Shanxi · Sichuan · Tianjin · Yunnan · Zhejiang · Cantonese HK · Cantonese Guangdong · Wu · Minnan
 
-### Quantization Support
-
-The server supports multiple quantization modes optimized for low-VRAM systems:
-
-- **4-bit (recommended for low-VRAM)**: Attempts bitsandbytes quantization, falls back to BF16/FP16 if not supported
-- **AWQ/GPTQ**: For models with pre-quantized checkpoints
-- **None**: Full precision (BF16/FP16)
-
-**Note**: vLLM 0.14.0 has limited native 4-bit support. The server will automatically fall back to BF16/FP16 with clear logging if 4-bit quantization is not available for the checkpoint.
-
-### Open-WebUI Integration
-
-This server is fully compatible with Open-WebUI:
-
-1. In Open-WebUI settings, add a new OpenAI API connection
-2. Set base URL to `http://your-server:8000/v1`
-3. API key is not required
-4. Audio transcription will automatically use this endpoint
-
-For detailed documentation, examples, and troubleshooting, see [FASTAPI_README.md](FASTAPI_README.md).
+The ForcedAligner supports: Chinese · English · Cantonese · French · German · Italian · Japanese · Korean · Portuguese · Russian · Spanish
 
 
-## Fine Tuning
+## 🏎️ Local Performance Benchmarks
 
-Please refer to [Qwen3-ASR-Finetuning](finetuning/) for detailed instructions on fine-tuning Qwen3-ASR.
+Measured on an NVIDIA RTX 3090 (24 GB) with `gpu_memory_utilization=0.8`:
 
+| Model | Peak VRAM | RTF (long clip) | Real-time speedup |
+|---|---|---|---|
+| Qwen3-ASR-1.7B (FP16) | 22.3 GB | 0.0263 | ~38× |
+| Qwen3-ASR-0.6B (FP16) | 22.1 GB | 0.0143 | **~70×** |
+| Qwen3-ASR-0.6B (util=0.3, eager) | 14.1 GB | 0.0407 | ~24× |
 
-## Docker
-
-To make it easier to use our `qwen-asr` Python package, we provide a pre-built Docker image: [qwenllm/qwen3-asr](https://hub.docker.com/r/qwenllm/qwen3-asr). You only need to install the GPU driver and download the model files to run the code. Please follow the [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to ensure Docker can access your GPU. If you are in Mainland China and have trouble reaching Docker Hub, you may use a registry mirror to accelerate image pulls.
-
-First, pull the image and start a container:
-
-```bash
-LOCAL_WORKDIR=/path/to/your/workspace
-HOST_PORT=8000
-CONTAINER_PORT=80
-docker run --gpus all --name qwen3-asr \
-    -v /var/run/docker.sock:/var/run/docker.sock -p $HOST_PORT:$CONTAINER_PORT \
-    --mount type=bind,source=$LOCAL_WORKDIR,target=/data/shared/Qwen3-ASR \
-    --shm-size=4gb \
-    -it qwenllm/qwen3-asr:latest
-```
-
-After running the command, you will enter the container’s bash shell. Your local workspace (**replace** `/path/to/your/workspace` **with the actual path**) will be mounted inside the container at `/data/shared/Qwen3-ASR`. Port `8000` on the host is mapped to port `80` in the container, so you can access services running in the container via `http://<host-ip>:8000`. Note that services inside the container must bind to `0.0.0.0` (not `127.0.0.1`) for port forwarding to work.
-
-If you exit the container, you can start it again and re-enter it with:
-
-```bash
-docker start qwen3-asr
-docker exec -it qwen3-asr bash
-```
-
-To remove the container completely, run:
-
-```bash
-docker rm -f qwen3-asr
-```
+See [docs/BENCHMARK.md](docs/BENCHMARK.md) for detailed memory scaling analysis.
 
 
 ## Evaluation
@@ -1499,6 +1515,40 @@ During evaluation, we ran inference for all models with `dtype=torch.bfloat16` a
 </details>
 
 
+## 🐛 Troubleshooting
+
+**Server won't start**
+```bash
+nvidia-smi                            # verify GPU is accessible
+pip list | grep -E "fastapi|uvicorn|vllm"  # verify installation
+```
+
+**Out of memory errors**
+```bash
+export GPU_MEMORY_UTILIZATION="0.7"
+export MAX_MODEL_LEN="4096"
+export MODEL_ID="Qwen/Qwen3-ASR-0.6B"  # smaller model
+```
+
+**4-bit quantization not working**  
+Expected with vLLM 0.14.0. The server automatically falls back to FP16/BF16. Check logs for the line `⚠ Model loaded in fallback mode`.
+
+**Audio processing errors**
+```bash
+ffmpeg -version       # must be installed
+apt-get install ffmpeg libsndfile1   # Ubuntu/Debian
+brew install ffmpeg                  # macOS
+```
+
+**CUDA graph errors**
+```bash
+export ENFORCE_EAGER="true"   # disable CUDA graphs
+```
+
+**vLLM multiprocessing error**  
+Wrap vLLM code in `if __name__ == "__main__":` — see [vLLM docs](https://docs.vllm.ai/en/latest/usage/troubleshooting/#python-multiprocessing).
+
+
 ## Citation
 
 If you find our paper and code useful in your research, please consider giving a star :star: and citation :pencil: :)
@@ -1513,8 +1563,8 @@ If you find our paper and code useful in your research, please consider giving a
 ```
 
 
-## Star History
+## License
 
-[![Star History Chart](https://api.star-history.com/svg?repos=QwenLM/Qwen3-ASR&type=Date)](https://star-history.com/#QwenLM/Qwen3-ASR&Date)
+This project is licensed under the [Apache 2.0 License](LICENSE).
 
-<br>
+[![Star History Chart](https://api.star-history.com/svg?repos=groxaxo/Qwen3-ASR-FastAPI&type=Date)](https://star-history.com/#groxaxo/Qwen3-ASR-FastAPI&Date)

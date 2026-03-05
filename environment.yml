@@ -1,0 +1,11 @@
+name: qwen3-asr
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - ffmpeg
+  - libsndfile
+  - pip:
+      - qwen-asr[vllm,fastapi]
